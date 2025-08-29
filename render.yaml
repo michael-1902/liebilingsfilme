@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: lieblingsfilme-backend
+    env: node
+    root: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        value: "mongodb+srv://tobertsenger:AyskuJXQz0ccJBsR@cluster0.ftzuofq.mongodb.net/lieblingsfilme?retryWrites=true&w=majority&appName=Cluster0"
+    autoDeploy: true
