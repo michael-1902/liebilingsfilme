@@ -40,19 +40,18 @@ module.exports = async (req, res) => {
     
     // POST movie - handle multiple URL patterns  
     if (method === 'POST' && (url === '/api/movies' || url === '/api/movies/add' || url.startsWith('/api/movies'))) {
-      const { title, description, year } = req.body;
+      const { title, year } = req.body;
       
-      console.log('Adding movie:', { title, description, year });
+      console.log('Adding movie:', { title, year });
       
-      if (!title || !description || !year) {
+      if (!title || !year) {
         return res.status(400).json({ 
-          error: 'Missing required fields: title, description, year' 
+          error: 'Missing required fields: title, year' 
         });
       }
       
       const newMovie = {
         title,
-        description,
         year: parseInt(year),
         createdAt: new Date(),
         updatedAt: new Date()

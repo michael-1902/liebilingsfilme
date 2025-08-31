@@ -5,8 +5,6 @@ import React, { useState } from 'react';
 function AddMovieForm({ addMovie }) {
   // State für das Eingabefeld Titel
   const [title, setTitle] = useState('');
-  // State für das Eingabefeld Beschreibung
-  const [description, setDescription] = useState('');
   // State für das Eingabefeld Jahr
   const [year, setYear] = useState('');
 
@@ -15,14 +13,13 @@ function AddMovieForm({ addMovie }) {
     // Verhindert das Standardverhalten des Formulars (Seiten-Reload)
     e.preventDefault();
     // Einfache Validierung: Wenn ein Feld leer ist, tue nichts.
-    if (!title || !description || !year) return;
+    if (!title || !year) return;
 
     // Die addMovie-Funktion aufrufen, die von App.js übergeben wurde
-    addMovie({ title, description, year: Number(year) });
+    addMovie({ title, year: Number(year) });
 
     // Die Eingabefelder nach dem Absenden leeren
     setTitle('');
-    setDescription('');
     setYear('');
   };
 
@@ -36,13 +33,6 @@ function AddMovieForm({ addMovie }) {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         required
-      />
-      <textarea
-        placeholder="Beschreibung"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        required
-        rows="3"
       />
       <input
         type="number"
