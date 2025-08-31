@@ -94,24 +94,25 @@ module.exports = async (req, res) => {
         }
         
         try {
-          const updatedMovie = await movies.findOneAndUpdate(
+          const result = await movies.updateOne(
             { _id: new ObjectId(movieId) },
             { 
-              title, 
-              year: parseInt(year),
-              updatedAt: new Date()
-            },
-            { returnDocument: 'after' }
+              $set: {
+                title, 
+                year: parseInt(year),
+                updatedAt: new Date()
+              }
+            }
           );
           
-          console.log('Update result:', updatedMovie);
+          console.log('Update result:', result);
           
-          if (!updatedMovie.value) {
+          if (result.matchedCount === 0) {
             return res.status(404).json({ error: 'Movie not found' });
           }
           
-          console.log('Movie updated successfully:', updatedMovie.value);
-          return res.status(200).json(updatedMovie.value);
+          console.log('Movie updated successfully');
+          return res.status(200).json({ message: 'Movie updated successfully' });
         } catch (error) {
           console.error('Update error:', error);
           return res.status(500).json({ error: 'Failed to update movie: ' + error.message });
@@ -123,23 +124,19 @@ module.exports = async (req, res) => {
         try {
           console.log('Attempting to delete movie with ID:', movieId);
           
-          const deletedMovie = await movies.findOneAndDelete(
+          const result = await movies.deleteOne(
             { _id: new ObjectId(movieId) }
           );
           
-          console.log('Delete result:', deletedMovie);
+          console.log('Delete result:', result);
           
-          if (!deletedMovie.value) {
-            // Let's also try to find the movie to see if it exists
-            const existingMovie = await movies.findOne({ _id: new ObjectId(movieId) });
-            console.log('Movie exists check:', existingMovie);
+          if (result.deletedCount === 0) {
             return res.status(404).json({ error: 'Movie not found' });
           }
           
-          console.log('Movie deleted successfully:', deletedMovie.value);
+          console.log('Movie deleted successfully');
           return res.status(200).json({ 
-            message: 'Movie deleted successfully',
-            deletedMovie: deletedMovie.value
+            message: 'Movie deleted successfully'
           });
         } catch (error) {
           console.error('Delete error:', error);

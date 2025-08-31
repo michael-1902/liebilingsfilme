@@ -76,7 +76,7 @@ function App() {
       
       // Den aktualisierten Film im lokalen State ersetzen
       setMovies(movies.map((movie) => 
-        movie._id === id ? response.data : movie
+        movie._id === id ? { ...movie, ...updatedMovie } : movie
       ));
       
       console.log('Movie updated successfully in state');
