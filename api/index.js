@@ -17,6 +17,11 @@ async function connectDB() {
     throw new Error('MONGO_URI environment variable is not set');
   }
   
+  // Additional validation for the URI format
+  if (typeof mongoUri !== 'string' || mongoUri.trim() === '') {
+    throw new Error('MONGO_URI is not a valid string');
+  }
+  
   try {
     client = new MongoClient(mongoUri, {
       maxPoolSize: 10,
