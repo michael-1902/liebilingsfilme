@@ -36,7 +36,6 @@ async function connectToDatabase() {
       socketTimeoutMS: 45000,
       family: 4,
       bufferCommands: false,
-      bufferMaxEntries: 0, // Disable mongoose buffering
       maxPoolSize: 1, // Limit connection pool size for serverless
     });
 
