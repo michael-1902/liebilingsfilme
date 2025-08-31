@@ -4,7 +4,6 @@
 
 param(
     [string]$ProjectPath = ".",
-    [switch]$StartApps,
     [switch]$SkipNodeInstall
 )
 
@@ -78,7 +77,7 @@ function Install-NodeJS() {
                 Write-Ok "NVM ueber winget installiert"
                 Write-Host "WICHTIG: PowerShell muss neu gestartet werden, damit NVM funktioniert."
                 Write-Host "Bitte schliesse dieses Fenster und fuehre das Script erneut aus:"
-                Write-Host ".\setup-local-ultimate.ps1 -StartApps"
+                Write-Host ".\setup-local-ultimate.ps1"
                 Read-Host "Druecke Enter, um das Fenster zu schliessen"
                 exit 0
             }
@@ -107,7 +106,7 @@ function Install-NodeJS() {
             Write-Ok "NVM erfolgreich installiert"
             Write-Host "WICHTIG: PowerShell muss neu gestartet werden, damit NVM funktioniert."
             Write-Host "Bitte schliesse dieses Fenster und fuehre das Script erneut aus:"
-            Write-Host ".\setup-local-ultimate.ps1 -StartApps"
+            Write-Host ".\setup-local-ultimate.ps1"
             Read-Host "Druecke Enter, um das Fenster zu schliessen"
             exit 0
         }
@@ -125,7 +124,7 @@ function Install-NodeJS() {
     Write-Host "2. Lade Node.js v18 LTS oder v22 LTS herunter"
     Write-Host "3. Fuehre die Installation aus"
     Write-Host "4. Starte PowerShell neu"
-    Write-Host "5. Fuehre dieses Script erneut aus: .\setup-local-ultimate.ps1 -StartApps"
+    Write-Host "5. Fuehre dieses Script erneut aus: .\setup-local-ultimate.ps1"
     Write-Host ""
     Write-Host "=== OPTION 2: NVM fuer Windows ==="
     Write-Host "1. Besuche: https://github.com/coreybutler/nvm-windows/releases"
@@ -133,7 +132,7 @@ function Install-NodeJS() {
     Write-Host "3. Fuehre die Installation als Administrator aus"
     Write-Host "4. Starte PowerShell neu"
     Write-Host "5. Fuehre aus: nvm install 18.20.4 && nvm use 18.20.4"
-    Write-Host "6. Fuehre dieses Script erneut aus: .\setup-local-ultimate.ps1 -StartApps"
+    Write-Host "6. Fuehre dieses Script erneut aus: .\setup-local-ultimate.ps1"
     Write-Host ""
     Read-Host "Druecke Enter, um das Script zu beenden"
     exit 1
@@ -373,55 +372,51 @@ NODE_ENV=development
     Write-Host "   - Lokal: Starte MongoDB Service"
     Write-Host "   - Atlas: Setze MONGO_URI in server/.env"
     Write-Host ""
-    Write-Host "2. Starte die Anwendung:"
-    Write-Host "   - Automatisch: Verwende -StartApps Parameter"
+    Write-Host "2. Die Anwendung startet automatisch nach dem Setup:"
+    Write-Host "   - Server und Client werden in separaten Fenstern geoeffnet"
     Write-Host "   - Manuell: npm run dev (im Projekt-Root)"
     Write-Host "   - Separat: Server: cd server && npm run dev"
     Write-Host "            Client: cd client && npm start"
     Write-Host ""
     
-    # Start apps if requested
-    if ($StartApps) {
-        Write-Info "=== Starte Anwendungen ==="
-        Write-Host "Oeffne Server und Client in neuen PowerShell-Fenstern..."
+    # Start apps automatically
+    Write-Info "=== Starte Anwendungen automatisch ==="
+    Write-Host "Oeffne Server und Client in neuen PowerShell-Fenstern..."
 
-        # Choose available shell
-        $shellExe = $null
-        if (Has-Command pwsh) {
-            $shellExe = 'pwsh'
-        } elseif (Has-Command powershell) {
-            $shellExe = 'powershell.exe'
-        }
+    # Choose available shell
+    $shellExe = $null
+    if (Has-Command pwsh) {
+        $shellExe = 'pwsh'
+    } elseif (Has-Command powershell) {
+        $shellExe = 'powershell.exe'
+    }
 
-        if ($shellExe) {
-            Write-Host "Verwendete Shell: $shellExe"
+    if ($shellExe) {
+        Write-Host "Verwendete Shell: $shellExe"
 
-            # Server window
-            $serverPath = Join-Path $absolutePath 'server'
-            $serverCmd = "Set-Location '$serverPath'; Write-Host 'Starte Server...'; npm run dev"
-            Start-Process -FilePath $shellExe -ArgumentList @('-NoExit', '-Command', $serverCmd) -WindowStyle Normal
+        # Server window
+        $serverPath = Join-Path $absolutePath 'server'
+        $serverCmd = "Set-Location '$serverPath'; Write-Host 'Starte Server...'; npm run dev"
+        Start-Process -FilePath $shellExe -ArgumentList @('-NoExit', '-Command', $serverCmd) -WindowStyle Normal
 
-            # Wait a moment
-            Start-Sleep -Seconds 2
+        # Wait a moment
+        Start-Sleep -Seconds 2
 
-            # Client window  
-            $clientPath = Join-Path $absolutePath 'client'
-            $clientCmd = "Set-Location '$clientPath'; Write-Host 'Starte Client...'; npm start"
-            Start-Process -FilePath $shellExe -ArgumentList @('-NoExit', '-Command', $clientCmd) -WindowStyle Normal
+        # Client window  
+        $clientPath = Join-Path $absolutePath 'client'
+        $clientCmd = "Set-Location '$clientPath'; Write-Host 'Starte Client...'; npm start"
+        Start-Process -FilePath $shellExe -ArgumentList @('-NoExit', '-Command', $clientCmd) -WindowStyle Normal
 
-            Write-Ok "Server und Client gestartet!"
-            Write-Host ""
-            Write-Host "URLs nach dem Start:"
-            Write-Host "  Frontend: http://localhost:3000"
-            Write-Host "  Backend API: http://localhost:5001/api/movies"
-            Write-Host ""
-            Write-Host "Hinweis: Es kann einige Sekunden dauern, bis beide Services verfuegbar sind."
-        } else {
-            Write-Warn "Keine PowerShell gefunden - automatischer Start uebersprungen"
-            Write-Host "Starte manuell mit: npm run dev"
-        }
+        Write-Ok "Server und Client gestartet!"
+        Write-Host ""
+        Write-Host "URLs nach dem Start:"
+        Write-Host "  Frontend: http://localhost:3000"
+        Write-Host "  Backend API: http://localhost:5001/api/movies"
+        Write-Host ""
+        Write-Host "Hinweis: Es kann einige Sekunden dauern, bis beide Services verfuegbar sind."
     } else {
-        Write-Host "Verwende -StartApps um Server und Client automatisch zu starten"
+        Write-Warn "Keine PowerShell gefunden - automatischer Start uebersprungen"
+        Write-Host "Starte manuell mit: npm run dev"
     }
 
 } catch {
@@ -435,6 +430,5 @@ NODE_ENV=development
 Write-Host ""
 Write-Ok "Setup-Script abgeschlossen."
 Write-Host "Du kannst dieses Script jederzeit erneut ausfuehren:"
-Write-Host "  .\setup-local-ultimate.ps1                 # Setup ohne automatischen Start"
-Write-Host "  .\setup-local-ultimate.ps1 -StartApps      # Setup mit automatischem Start"
+Write-Host "  .\setup-local-ultimate.ps1                 # Setup mit automatischem Start"
 Write-Host "  .\setup-local-ultimate.ps1 -SkipNodeInstall # Nur Abhaengigkeiten (Node.js bereits vorhanden)"
