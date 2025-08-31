@@ -13,31 +13,39 @@ if (!cached) {
 
 // Database connection function
 async function connectToDatabase() {
-  if (cached.conn) {
+  if (cached.conn && cached.conn.connection.readyState === 1) {
     console.log('Using cached MongoDB connection');
     return cached.conn;
   }
 
-  if (!cached.promise) {
+  try {
     const uri = process.env.MONGO_URI;
     if (!uri) {
       throw new Error('MONGO_URI environment variable is not set');
     }
 
     console.log('Creating new MongoDB connection...');
-    cached.promise = mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 10000,
+    
+    // Disconnect if there's an existing connection that's not ready
+    if (cached.conn) {
+      await mongoose.disconnect();
+    }
+    
+    const connection = await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
       family: 4,
       bufferCommands: false,
+      bufferMaxEntries: 0, // Disable mongoose buffering
+      maxPoolSize: 1, // Limit connection pool size for serverless
     });
-  }
 
-  try {
-    cached.conn = await cached.promise;
+    cached.conn = connection;
     console.log('MongoDB-Verbindung erfolgreich hergestellt (Vercel)');
-    return cached.conn;
+    console.log('Connection state:', mongoose.connection.readyState);
+    return connection;
   } catch (error) {
+    cached.conn = null;
     cached.promise = null;
     console.error('MongoDB-Verbindungsfehler (Vercel):', error);
     throw error;
@@ -62,6 +70,23 @@ module.exports = async (req, res) => {
     await connectToDatabase();
     console.log('Database connected successfully');
     
+    // Wait for connection to be ready
+    if (mongoose.connection.readyState !== 1) {
+      console.log('Waiting for connection to be ready...');
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Database connection timeout'));
+        }, 5000);
+        
+        mongoose.connection.once('connected', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      });
+    }
+    
+    console.log('Connection ready, processing request...');
+    
     // Parse the URL to determine the action
     const url = req.url || '';
     const method = req.method;
@@ -73,20 +98,43 @@ module.exports = async (req, res) => {
       if (method === 'GET') {
         // Get all movies
         console.log('Fetching all movies...');
-        const movies = await Movie.find();
-        console.log(`Found ${movies.length} movies`);
-        return res.json(movies);
+        try {
+          const movies = await Movie.find().maxTimeMS(5000);
+          console.log(`Found ${movies.length} movies`);
+          return res.json(movies);
+        } catch (dbError) {
+          console.error('Database query error:', dbError);
+          return res.status(500).json({ 
+            error: 'Datenbankfehler beim Abrufen der Filme',
+            details: dbError.message 
+          });
+        }
       }
       
       if (method === 'POST') {
         // Add new movie
         console.log('Adding new movie...', req.body);
-        const { title, description, year } = req.body;
-        
-        const newMovie = new Movie({ title, description, year });
-        const savedMovie = await newMovie.save();
-        console.log('Movie saved:', savedMovie._id);
-        return res.status(201).json(savedMovie);
+        try {
+          const { title, description, year } = req.body;
+          
+          if (!title || !description || !year) {
+            return res.status(400).json({ 
+              error: 'Fehlende Felder',
+              required: ['title', 'description', 'year']
+            });
+          }
+          
+          const newMovie = new Movie({ title, description, year });
+          const savedMovie = await newMovie.save();
+          console.log('Movie saved:', savedMovie._id);
+          return res.status(201).json(savedMovie);
+        } catch (dbError) {
+          console.error('Database save error:', dbError);
+          return res.status(500).json({ 
+            error: 'Datenbankfehler beim Speichern des Films',
+            details: dbError.message 
+          });
+        }
       }
     }
     
