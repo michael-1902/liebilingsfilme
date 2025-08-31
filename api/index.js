@@ -29,15 +29,20 @@ module.exports = async (req, res) => {
     
     const { method, url } = req;
     
-    // GET movies
-    if (method === 'GET' && url === '/api/movies') {
+    console.log('API Request:', { method, url, body: req.body });
+    
+    // GET movies - handle multiple URL patterns
+    if (method === 'GET' && (url === '/api/movies' || url === '/' || url.startsWith('/api/movies'))) {
       const movieList = await movies.find({}).toArray();
+      console.log('Found movies:', movieList.length);
       return res.json(movieList);
     }
     
-    // POST movie
-    if (method === 'POST' && url === '/api/movies') {
+    // POST movie - handle multiple URL patterns  
+    if (method === 'POST' && (url === '/api/movies' || url === '/api/movies/add' || url.startsWith('/api/movies'))) {
       const { title, description, year } = req.body;
+      
+      console.log('Adding movie:', { title, description, year });
       
       if (!title || !description || !year) {
         return res.status(400).json({ 
@@ -56,6 +61,7 @@ module.exports = async (req, res) => {
       const result = await movies.insertOne(newMovie);
       const savedMovie = await movies.findOne({ _id: result.insertedId });
       
+      console.log('Movie saved successfully:', savedMovie);
       return res.status(201).json(savedMovie);
     }
     

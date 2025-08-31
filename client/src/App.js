@@ -56,11 +56,14 @@ function App() {
   // Funktion, um einen neuen Film hinzuzufügen
   const addMovie = async (movie) => {
     try {
-      const response = await axios.post(`${API_URL}/add`, movie);
+      console.log('Adding movie:', movie);
+      const response = await axios.post(API_URL, movie);
+      console.log('Movie added:', response.data);
       // Den neuen Film, der vom API zurückgegeben wird, zum lokalen State hinzufügen
       setMovies([...movies, response.data]);
     } catch (error) {
       console.error('Fehler beim Hinzufügen des Films:', error);
+      alert('Fehler beim Hinzufügen des Films: ' + error.message);
     }
   };
 

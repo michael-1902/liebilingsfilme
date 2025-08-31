@@ -7,15 +7,16 @@ function MovieItem({ movie, deleteMovie, updateMovie }) {
   const [isEditing, setIsEditing] = useState(false);
   // State für die bearbeiteten Werte
   const [editTitle, setEditTitle] = useState(movie.title);
+  const [editDescription, setEditDescription] = useState(movie.description || '');
   const [editYear, setEditYear] = useState(movie.year);
 
   // Funktion zum Speichern der Änderungen
   const handleSave = () => {
     // Einfache Validierung
-    if (!editTitle || !editYear) return;
+    if (!editTitle || !editDescription || !editYear) return;
     
     // Die updateMovie-Funktion aufrufen
-    updateMovie(movie._id, { title: editTitle, year: Number(editYear) });
+    updateMovie(movie._id, { title: editTitle, description: editDescription, year: Number(editYear) });
     
     // Bearbeitungsmodus beenden
     setIsEditing(false);
@@ -25,6 +26,7 @@ function MovieItem({ movie, deleteMovie, updateMovie }) {
   const handleCancel = () => {
     // Werte zurücksetzen
     setEditTitle(movie.title);
+    setEditDescription(movie.description || '');
     setEditYear(movie.year);
     // Bearbeitungsmodus beenden
     setIsEditing(false);
@@ -57,6 +59,13 @@ function MovieItem({ movie, deleteMovie, updateMovie }) {
             className="edit-input"
             placeholder="Film Titel"
           />
+          <textarea
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            className="edit-input"
+            placeholder="Beschreibung"
+            rows="3"
+          />
           <input
             type="number"
             value={editYear}
@@ -88,6 +97,7 @@ function MovieItem({ movie, deleteMovie, updateMovie }) {
           </div>
           <div className="movie-info">
             <h3 className="movie-title">{movie.title}</h3>
+            <p className="movie-description">{movie.description}</p>
             <p className="movie-year-text">Jahr: {movie.year}</p>
           </div>
         </div>
