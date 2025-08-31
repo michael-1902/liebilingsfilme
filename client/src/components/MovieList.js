@@ -2,7 +2,7 @@ import React from 'react';
 import MovieItem from './MovieItem';
 
 // Diese Komponente zeigt die Liste der Filme an.
-// Sie erhält das 'movies'-Array, die 'deleteMovie'-Funktion und die 'updateMovie'-Funktion von App.js.
+// Sie erhält das 'movies'-Array sowie die Funktionen 'deleteMovie' und 'updateMovie' von App.js.
 function MovieList({ movies, deleteMovie, updateMovie }) {
   return (
     <div className="movie-list">

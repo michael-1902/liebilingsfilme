@@ -1,42 +1,42 @@
-// Import the Mongoose library
+// Mongoose-Bibliothek importieren
 const mongoose = require('mongoose');
 
-// Get the Schema constructor from Mongoose
+// Das Schema-Konstruktur von Mongoose holen
 const Schema = mongoose.Schema;
 
-// --- Define the Movie Schema ---
-// This schema defines the structure of a movie document in the MongoDB collection.
+// --- Movie-Schema definieren ---
+// Dieses Schema definiert die Struktur eines Film-Dokuments in der MongoDB-Collection.
 const movieSchema = new Schema({
-  // 'title' field:
-  // - Type must be a String.
-  // - It is a required field, meaning every movie document must have a title.
-  // - The 'trim' option removes any leading/trailing whitespace.
+  // Feld 'title':
+  // - Typ: String
+  // - Erforderlich: Jeder Film benötigt einen Titel
+  // - 'trim' entfernt führende und nachfolgende Leerzeichen
   title: {
     type: String,
     required: true,
     trim: true,
   },
-  // 'year' field:
-  // - Type must be a Number.
-  // - It is a required field.
+  // Feld 'year':
+  // - Typ: Number
+  // - Erforderlich
   year: {
     type: Number,
     required: true,
   },
 }, {
-  // --- Schema Options ---
-  // 'timestamps: true' automatically adds 'createdAt' and 'updatedAt' fields
-  // to the document. This is useful for tracking when a document was created or modified.
+  // --- Schema-Optionen ---
+  // 'timestamps: true' fügt automatisch 'createdAt' und 'updatedAt' Felder
+  // zum Dokument hinzu. Nützlich, um Erstellungs- und Änderungszeitpunkte zu verfolgen.
   timestamps: true,
 });
 
-// --- Create the Model ---
-// The mongoose.model() function compiles the schema into a model.
-// A model is a class with which we construct documents.
-// The first argument is the singular name of the collection your model is for.
-// Mongoose automatically looks for the plural, lowercased version of your model name.
-// Thus, for the model 'Movie', the collection will be 'movies'.
+// --- Modell erstellen ---
+// mongoose.model() kompiliert das Schema zu einem Modell.
+// Ein Modell ist eine Klasse, mit der Dokumente erzeugt werden.
+// Das erste Argument ist der singuläre Name der Collection; Mongoose sucht automatisch
+// nach der pluralen, kleingeschriebenen Version als Collection-Namen.
+// Für das Modell 'Movie' wird also die Collection 'movies' verwendet.
 const Movie = mongoose.model('Movie', movieSchema);
 
-// Export the Movie model so it can be used in other parts of the application (like our routes).
+// Das Movie-Modell exportieren, damit es in anderen Teilen der Anwendung (z. B. in den Routen) verwendet werden kann.
 module.exports = Movie;

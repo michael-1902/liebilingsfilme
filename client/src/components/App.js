@@ -4,56 +4,56 @@ import MovieList from './components/MovieList';
 import AddMovieForm from './components/AddMovieForm';
 import './App.css';
 
-// The base URL for our backend API
+// Basis-URL für unser Backend-API
 const API_URL = 'https://lieblingsfilme.onrender.com/api/movies';
 
 function App() {
-  // State to hold the array of movies
+  // State für das Array der Filme
   const [movies, setMovies] = useState([]);
 
-  // useEffect hook to fetch movies when the component mounts
+  // useEffect-Hook, um Filme beim Laden der Komponente abzurufen
   useEffect(() => {
     getMovies();
   }, []);
 
-  // --- API Functions ---
+  // --- API-Funktionen ---
 
-  // Function to fetch all movies from the backend
+  // Funktion, um alle Filme vom Backend zu holen
   const getMovies = async () => {
     try {
       const response = await axios.get(API_URL);
-      setMovies(response.data); // Update state with fetched movies
+      setMovies(response.data); // State mit abgerufenen Filmen aktualisieren
     } catch (error) {
-      console.error('Error fetching movies:', error);
+      console.error('Fehler beim Abrufen der Filme:', error);
     }
   };
 
-  // Function to add a new movie
+  // Funktion, um einen neuen Film hinzuzufügen
   const addMovie = async (movie) => {
     try {
       const response = await axios.post(`${API_URL}/add`, movie);
-      // Add the new movie returned from the API to our local state
+      // Den neuen Film, der vom API zurückgegeben wird, zum lokalen State hinzufügen
       setMovies([...movies, response.data]);
     } catch (error) {
-      console.error('Error adding movie:', error);
+      console.error('Fehler beim Hinzufügen des Films:', error);
     }
   };
 
-  // Function to delete a movie by its ID
+  // Funktion, um einen Film anhand seiner ID zu löschen
   const deleteMovie = async (id) => {
     try {
       await axios.delete(`${API_URL}/${id}`);
-      // Filter out the deleted movie from our local state
+      // Den gelöschten Film aus dem lokalen State herausfiltern
       setMovies(movies.filter((movie) => movie._id !== id));
     } catch (error) {
-      console.error('Error deleting movie:', error);
+      console.error('Fehler beim Löschen des Films:', error);
     }
   };
 
   return (
     <div className="App">
       <header className="App-header">
-        <h1>My Favorite Movies</h1>
+        <h1>Meine Lieblingsfilme</h1>
       </header>
       <main className="App-main">
         <section className="add-movie-section">

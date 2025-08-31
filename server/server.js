@@ -1,4 +1,4 @@
-// Import required packages
+// Benötigte Pakete importieren
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -8,56 +8,63 @@ if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config(); // Only load .env in development
 }
 
-// Initialize the Express app
+// Express-Anwendung initialisieren
 const app = express();
 
 // Middleware
-app.use(cors()); // Enable Cross-Origin Resource Sharing
-app.use(express.json()); // Enable the express app to parse JSON formatted request bodies
+app.use(cors()); // Cross-Origin Resource Sharing aktivieren
+app.use(express.json()); // Express-Anwendung erlaubt das Parsen von JSON-Request-Bodies
 
-// --- API Routes ---
-// Import the movies router
+// --- API-Routen ---
+// Den Movies-Router importieren
 const moviesRouter = require('./routes/movies');
-// Use the movies router for any requests to '/api/movies'
-// For example, a GET request to '/api/movies' will be handled by the router.
+// Den Movies-Router für alle Anfragen an '/api/movies' verwenden
+// Zum Beispiel wird eine GET-Anfrage an '/api/movies' vom Router behandelt.
 app.use('/api/movies', moviesRouter);
 
 
-// Define the port the server will run on
-// It will use the PORT from the .env file, or 5001 if it's not defined
+// Den Port definieren, auf dem der Server läuft
+// Verwendet PORT aus der .env-Datei oder 5001, falls nicht definiert
 const PORT = process.env.PORT || 5001;
 
-// A simple route for testing the server
+// Einfache Route zum Testen des Servers
 app.get('/', (req, res) => {
   res.send('Wir testen den Movies-App-Server!');
 });
 
-// --- MongoDB Connection ---
-// Get the connection string from the environment variables
+// --- MongoDB-Verbindung ---
+// Die Verbindungszeichenfolge aus den Umgebungsvariablen holen
 const uri = process.env.MONGO_URI;
 
-console.log('Attempting to connect to MongoDB...');
-console.log('MONGO_URI exists:', !!uri);
+console.log('Versuche, eine Verbindung zu MongoDB herzustellen...');
+console.log('MONGO_URI vorhanden:', !!uri);
 
 if (!uri) {
-  console.error('MONGO_URI environment variable is not set!');
+  console.error('MONGO_URI Umgebungsvariable ist nicht gesetzt!');
   process.exit(1);
 }
 
-// Connect to MongoDB using Mongoose
+// Mit Mongoose zu MongoDB verbinden
 mongoose.connect(uri, {
   serverSelectionTimeoutMS: 30000, // Keep trying to send operations for 30 seconds
   socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
   family: 4 // Use IPv4, skip trying IPv6
 })
   .then(() => {
-    console.log('MongoDB connection established successfully');
-    // Start the server only after the database connection is successful
-    app.listen(PORT, () => {
-      console.log(`Server is running on port: ${PORT}`);
-    });
+    console.log('MongoDB-Verbindung erfolgreich hergestellt');
+    // Server erst nach erfolgreicher DB-Verbindung starten (nur lokal)
+    if (process.env.NODE_ENV !== 'production') {
+      app.listen(PORT, () => {
+        console.log(`Server läuft auf Port: ${PORT}`);
+      });
+    }
   })
   .catch(err => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
+    console.error('MongoDB-Verbindungsfehler:', err);
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
   });
+
+// Export für Vercel (serverless)
+module.exports = app;

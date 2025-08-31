@@ -1,21 +1,21 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-console.log('=== MongoDB Connection Test ===');
-console.log('Environment variables loaded:');
+console.log('=== MongoDB-Verbindungstest ===');
+console.log('Umgebungsvariablen geladen:');
 console.log('- PORT:', process.env.PORT);
-console.log('- MONGO_URI exists:', !!process.env.MONGO_URI);
+console.log('- MONGO_URI vorhanden:', !!process.env.MONGO_URI);
 
 if (process.env.MONGO_URI) {
-  // Mask password for security
+  // Passwort aus Sicherheitsgründen maskieren
   const maskedUri = process.env.MONGO_URI.replace(/:([^:@]+)@/, ':****@');
-  console.log('- Connection string (masked):', maskedUri);
+  console.log('- Verbindungszeichenfolge (maskiert):', maskedUri);
 }
 
-console.log('\nAttempting to connect...');
+console.log('\nVersuche zu verbinden...');
 
 const connectionOptions = {
-  serverSelectionTimeoutMS: 10000, // Reduce timeout for faster feedback
+  serverSelectionTimeoutMS: 10000, // Timeout reduzieren für schnelleres Feedback
   socketTimeoutMS: 45000,
   family: 4, // Use IPv4
   bufferCommands: false
@@ -23,26 +23,26 @@ const connectionOptions = {
 
 mongoose.connect(process.env.MONGO_URI, connectionOptions)
   .then(() => {
-    console.log('✅ MongoDB connection successful!');
-    console.log('Connected to database:', mongoose.connection.name || 'default');
+  console.log('✅ MongoDB-Verbindung erfolgreich!');
+  console.log('Verbunden mit Datenbank:', mongoose.connection.name || 'default');
     mongoose.connection.close();
     process.exit(0);
   })
   .catch(err => {
-    console.error('❌ MongoDB connection failed:');
-    console.error('Error name:', err.name);
-    console.error('Error message:', err.message);
+    console.error('❌ MongoDB-Verbindung fehlgeschlagen:');
+    console.error('Fehlername:', err.name);
+    console.error('Fehlermeldung:', err.message);
     if (err.reason) {
-      console.error('Error reason:', err.reason);
+      console.error('Fehlergrund:', err.reason);
     }
     if (err.code) {
-      console.error('Error code:', err.code);
+      console.error('Fehlercode:', err.code);
     }
     process.exit(1);
   });
 
 // Timeout after 15 seconds for faster feedback
 setTimeout(() => {
-  console.error('❌ Connection timeout after 15 seconds');
+  console.error('❌ Verbindungs-Timeout nach 15 Sekunden');
   process.exit(1);
 }, 15000);

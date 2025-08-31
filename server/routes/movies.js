@@ -1,66 +1,66 @@
-// Import the Express library to create a router
+// Express importieren und Router erstellen
 const router = require('express').Router();
 
-// Import the Movie model from our models folder
-// This model allows us to interact with the 'movies' collection in MongoDB
+// Movie-Modell aus dem models-Ordner importieren
+// Dieses Modell erlaubt die Interaktion mit der 'movies'-Collection in MongoDB
 let Movie = require('../models/movie.js');
 
-// --- API Endpoints ---
+// --- API-Endpunkte ---
 
-// Endpoint: GET /api/movies/
-// Description: Handles HTTP GET requests to fetch all movies from the database.
+// Endpunkt: GET /api/movies/
+// Beschreibung: Behandelt HTTP-GET-Anfragen, um alle Filme aus der Datenbank zu holen.
 router.route('/').get(async (req, res) => {
   try {
-    // Use the Movie model to find all documents in the movies collection
-    const movies = await Movie.find();
-    // Respond with the found movies in JSON format
-    res.json(movies);
+  // Das Movie-Modell verwenden, um alle Dokumente aus der movies-Collection zu finden
+  const movies = await Movie.find();
+  // Mit den gefundenen Filmen als JSON antworten
+  res.json(movies);
   } catch (err) {
-    // If an error occurs, respond with a 400 status and the error message
-    res.status(400).json('Error: ' + err);
+  // Falls ein Fehler auftritt, mit Status 400 und Fehlermeldung antworten
+  res.status(400).json('Fehler: ' + err);
   }
 });
 
-// Endpoint: POST /api/movies/add
-// Description: Handles HTTP POST requests to add a new movie to the database.
+// Endpunkt: POST /api/movies/add
+// Beschreibung: Behandelt HTTP-POST-Anfragen, um einen neuen Film in die Datenbank zu speichern.
 router.route('/add').post(async (req, res) => {
-  // Extract the title and year from the request body
+  // Titel und Jahr aus dem Request-Body extrahieren
   const { title, year } = req.body;
 
-  // Create a new Movie instance with the extracted data
+  // Neue Movie-Instanz mit den extrahierten Daten erstellen
   const newMovie = new Movie({
     title,
     year,
   });
 
   try {
-    // Save the new movie document to the database
-    const savedMovie = await newMovie.save();
-    // Respond with the newly created movie object
-    res.json(savedMovie);
+  // Das neue Film-Dokument in der Datenbank speichern
+  const savedMovie = await newMovie.save();
+  // Mit dem neu erstellten Filmobjekt antworten
+  res.json(savedMovie);
   } catch (err) {
-    // If an error occurs, respond with a 400 status and the error message
-    res.status(400).json('Error: ' + err);
+  // Falls ein Fehler auftritt, mit Status 400 und Fehlermeldung antworten
+  res.status(400).json('Fehler: ' + err);
   }
 });
 
-// Endpoint: PUT /api/movies/:id
-// Description: Handles HTTP PUT requests to update an existing movie by its ID.
+// Endpunkt: PUT /api/movies/:id
+// Beschreibung: Behandelt HTTP-PUT-Anfragen, um einen bestehenden Film per ID zu aktualisieren.
 router.route('/:id').put(async (req, res) => {
   try {
-    // Build an update object only with fields that were supplied
+  // Ein Update-Objekt nur mit den gelieferten Feldern bauen
     const updateData = {};
     if (Object.prototype.hasOwnProperty.call(req.body, 'title')) {
       updateData.title = req.body.title;
     }
     if (Object.prototype.hasOwnProperty.call(req.body, 'year')) {
-      // convert to number when provided
-      updateData.year = Number(req.body.year);
+  // Falls geliefert, in eine Zahl konvertieren
+  updateData.year = Number(req.body.year);
     }
 
-    // If nothing to update, return 400
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json('Error: No valid fields provided to update.');
+  // Falls nichts zum Aktualisieren vorhanden ist, 400 zurückgeben
+  if (Object.keys(updateData).length === 0) {
+  return res.status(400).json('Fehler: Keine gültigen Felder zum Aktualisieren angegeben.');
     }
 
     // Find the movie by its ID and update it with new data
@@ -71,35 +71,36 @@ router.route('/:id').put(async (req, res) => {
     );
 
     if (!updatedMovie) {
-      // If no movie was found with that ID, return a 404 error
-      return res.status(404).json('Error: Movie not found.');
+      // Falls kein Film mit der angegebenen ID gefunden wurde, 404 zurückgeben
+      return res.status(404).json('Fehler: Film nicht gefunden.');
     }
 
-    // Respond with the updated movie object
+    // Mit dem aktualisierten Filmobjekt antworten
     res.json(updatedMovie);
   } catch (err) {
-    // If an error occurs (e.g., invalid ID format or validation error), respond with a 400 status
-    res.status(400).json('Error: ' + err);
+  // Falls ein Fehler auftritt (z. B. ungültiges ID-Format oder Validierungsfehler), mit 400 antworten
+  res.status(400).json('Fehler: ' + err);
   }
 });
 
-// Endpoint: DELETE /api/movies/:id
-// Description: Handles HTTP DELETE requests to remove a movie by its ID.
+// Endpunkt: DELETE /api/movies/:id
+// Beschreibung: Behandelt HTTP-DELETE-Anfragen, um einen Film anhand seiner ID zu entfernen.
 router.route('/:id').delete(async (req, res) => {
   try {
-    // Find the movie by its ID (from the URL parameter) and delete it
+    // Den Film anhand der ID (aus der URL-Parameter) suchen und löschen
     const deletedMovie = await Movie.findByIdAndDelete(req.params.id);
     if (!deletedMovie) {
-      // If no movie was found with that ID, return a 404 error
-      return res.status(404).json('Error: Movie not found.');
+      // Falls kein Film mit dieser ID gefunden wurde, 404 zurückgeben
+      return res.status(404).json('Fehler: Film nicht gefunden.');
     }
-    // Respond with a success message
-    res.json('Movie deleted successfully.');
+    // Mit einer Erfolgsmeldung antworten
+    res.json('Film erfolgreich gelöscht.');
   } catch (err) {
-    // If an error occurs (e.g., invalid ID format), respond with a 400 status
-    res.status(400).json('Error: ' + err);
+    // Falls ein Fehler auftritt (z. B. ungültiges ID-Format), mit Status 400 antworten
+    res.status(400).json('Fehler: ' + err);
   }
 });
 
 // Export the router so it can be used in our main server.js file
+// Den Router exportieren, damit er in der Hauptdatei server.js verwendet werden kann
 module.exports = router;
