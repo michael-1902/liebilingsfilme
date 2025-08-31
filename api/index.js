@@ -1,9 +1,5 @@
-// Vercel Serverless API Handler - Anti-buffering version
+// Vercel Serverless API Handler - Direct MongoDB approach
 const mongoose = require('mongoose');
-
-// Disable mongoose buffering globally
-mongoose.set('bufferCommands', false);
-mongoose.set('bufferMaxEntries', 0);
 
 // Import model
 const Movie = require('../server/models/movie');
@@ -11,8 +7,9 @@ const Movie = require('../server/models/movie');
 // MongoDB connection state
 let isConnected = false;
 
-// Database connection function
+// Database connection function with aggressive anti-buffering
 async function connectToDatabase() {
+  // Skip if already connected and ready
   if (isConnected && mongoose.connection.readyState === 1) {
     console.log('Using existing MongoDB connection');
     return;
@@ -26,32 +23,58 @@ async function connectToDatabase() {
 
     console.log('Creating fresh MongoDB connection...');
     
-    // Force disconnect any existing connections
-    if (mongoose.connection.readyState !== 0) {
+    // Completely clean slate - disconnect everything
+    if (mongoose.connections.length > 0) {
       await mongoose.disconnect();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for complete disconnect
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     
-    // Connect with minimal buffering and strict timeout settings
+    // Disable buffering at the schema level for this model
+    Movie.schema.set('bufferCommands', false);
+    
+    // Connect with aggressive timeout settings
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 10000,
-      connectTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 3000,
+      socketTimeoutMS: 5000,
+      connectTimeoutMS: 3000,
       maxPoolSize: 1,
-      minPoolSize: 0,
-      maxIdleTimeMS: 10000,
+      minPoolSize: 1,
+      maxIdleTimeMS: 5000,
       bufferCommands: false,
-      bufferMaxEntries: 0,
       family: 4,
+      directConnection: false,
+    });
+    
+    // Wait for the connection to be fully established
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Connection verification timeout'));
+      }, 2000);
+      
+      if (mongoose.connection.readyState === 1) {
+        clearTimeout(timeout);
+        resolve();
+      } else {
+        mongoose.connection.once('connected', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      }
     });
     
     isConnected = true;
-    console.log('MongoDB connected successfully');
+    console.log('MongoDB connected and verified successfully');
     
-    // Handle disconnection
+    // Handle disconnection events
     mongoose.connection.on('disconnected', () => {
-      isConnected = false;
       console.log('MongoDB disconnected');
+      isConnected = false;
+    });
+    
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+      isConnected = false;
     });
     
   } catch (error) {
@@ -74,21 +97,22 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Connect to database with timeout
+    // Connect to database with aggressive timeout
     console.log('Establishing database connection...');
+    
     const connectionPromise = connectToDatabase();
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Connection timeout')), 8000)
+      setTimeout(() => reject(new Error('Connection timeout after 5 seconds')), 5000)
     );
     
     await Promise.race([connectionPromise, timeoutPromise]);
     
-    // Verify connection is actually ready
+    // Triple-check connection is ready
     if (!isConnected || mongoose.connection.readyState !== 1) {
-      throw new Error('Database connection not ready');
+      throw new Error(`Database connection not ready. State: ${mongoose.connection.readyState}, isConnected: ${isConnected}`);
     }
     
-    console.log('Database ready, processing request...');
+    console.log('Database verified ready, processing request...');
     
     // Parse the URL to determine the action
     const url = req.url || '';
@@ -99,18 +123,28 @@ module.exports = async (req, res) => {
     // Handle different routes
     if (url === '/api/movies' || url === '/movies' || url === '/') {
       if (method === 'GET') {
-        // Get all movies with immediate execution
-        console.log('Fetching all movies...');
+        // Get all movies with immediate execution and no buffering
+        console.log('Fetching all movies with direct query...');
         try {
-          // Direct query without buffering
-          const movies = await Movie.find({}).maxTimeMS(5000).exec();
+          // Force immediate execution with timeout
+          const queryPromise = Movie.find({}).maxTimeMS(3000).lean().exec();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Query timeout')), 4000)
+          );
+          
+          const movies = await Promise.race([queryPromise, timeoutPromise]);
           console.log(`Successfully found ${movies.length} movies`);
           return res.status(200).json(movies);
         } catch (dbError) {
           console.error('Database query failed:', dbError);
+          
+          // Reset connection on query failure
+          isConnected = false;
+          
           return res.status(500).json({ 
             error: 'Failed to fetch movies',
-            details: dbError.message 
+            details: dbError.message,
+            type: dbError.name || 'DatabaseError'
           });
         }
       }
