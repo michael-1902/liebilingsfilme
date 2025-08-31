@@ -70,24 +70,38 @@ function App() {
   // Funktion, um einen Film anhand seiner ID zu aktualisieren
   const updateMovie = async (id, updatedMovie) => {
     try {
+      console.log('Updating movie:', { id, updatedMovie });
       const response = await axios.put(`${API_URL}/${id}`, updatedMovie);
+      console.log('Update response:', response.data);
+      
       // Den aktualisierten Film im lokalen State ersetzen
       setMovies(movies.map((movie) => 
         movie._id === id ? response.data : movie
       ));
+      
+      console.log('Movie updated successfully in state');
     } catch (error) {
       console.error('Fehler beim Aktualisieren des Films:', error);
+      console.error('Error response:', error.response?.data);
+      alert('Fehler beim Aktualisieren: ' + (error.response?.data?.error || error.message));
     }
   };
 
   // Funktion, um einen Film anhand seiner ID zu löschen
   const deleteMovie = async (id) => {
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      console.log('Deleting movie:', id);
+      const response = await axios.delete(`${API_URL}/${id}`);
+      console.log('Delete response:', response.data);
+      
       // Den gelöschten Film aus dem lokalen State herausfiltern
       setMovies(movies.filter((movie) => movie._id !== id));
+      
+      console.log('Movie deleted successfully from state');
     } catch (error) {
       console.error('Fehler beim Löschen des Films:', error);
+      console.error('Error response:', error.response?.data);
+      alert('Fehler beim Löschen: ' + (error.response?.data?.error || error.message));
     }
   };
 

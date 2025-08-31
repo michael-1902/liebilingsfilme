@@ -1,5 +1,5 @@
 // NATIVE MONGODB - NO MONGOOSE BUFFERING
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 
 let client = null;
 let db = null;
@@ -81,53 +81,65 @@ module.exports = async (req, res) => {
           });
         }
         
-        const { ObjectId } = require('mongodb');
-        const updatedMovie = await movies.findOneAndUpdate(
-          { _id: new ObjectId(movieId) },
-          { 
-            title, 
-            year: parseInt(year),
-            updatedAt: new Date()
-          },
-          { returnDocument: 'after' }
-        );
-        
-        if (!updatedMovie.value) {
-          return res.status(404).json({ error: 'Movie not found' });
+        try {
+          const updatedMovie = await movies.findOneAndUpdate(
+            { _id: new ObjectId(movieId) },
+            { 
+              title, 
+              year: parseInt(year),
+              updatedAt: new Date()
+            },
+            { returnDocument: 'after' }
+          );
+          
+          if (!updatedMovie.value) {
+            return res.status(404).json({ error: 'Movie not found' });
+          }
+          
+          console.log('Movie updated:', updatedMovie.value);
+          return res.status(200).json(updatedMovie.value);
+        } catch (error) {
+          console.error('Update error:', error);
+          return res.status(500).json({ error: 'Failed to update movie' });
         }
-        
-        console.log('Movie updated:', updatedMovie.value);
-        return res.status(200).json(updatedMovie.value);
       }
       
       if (method === 'DELETE') {
         // Delete movie
-        const { ObjectId } = require('mongodb');
-        const deletedMovie = await movies.findOneAndDelete(
-          { _id: new ObjectId(movieId) }
-        );
-        
-        if (!deletedMovie.value) {
-          return res.status(404).json({ error: 'Movie not found' });
+        try {
+          const deletedMovie = await movies.findOneAndDelete(
+            { _id: new ObjectId(movieId) }
+          );
+          
+          if (!deletedMovie.value) {
+            return res.status(404).json({ error: 'Movie not found' });
+          }
+          
+          console.log('Movie deleted:', deletedMovie.value);
+          return res.status(200).json({ 
+            message: 'Movie deleted successfully',
+            deletedMovie: deletedMovie.value
+          });
+        } catch (error) {
+          console.error('Delete error:', error);
+          return res.status(500).json({ error: 'Failed to delete movie' });
         }
-        
-        console.log('Movie deleted:', deletedMovie.value);
-        return res.status(200).json({ 
-          message: 'Movie deleted successfully',
-          deletedMovie: deletedMovie.value
-        });
       }
       
       if (method === 'GET') {
         // Get single movie
-        const { ObjectId } = require('mongodb');
-        const movie = await movies.findOne({ _id: new ObjectId(movieId) });
-        
-        if (!movie) {
-          return res.status(404).json({ error: 'Movie not found' });
+        try {
+          const movie = await movies.findOne({ _id: new ObjectId(movieId) });
+          
+          if (!movie) {
+            return res.status(404).json({ error: 'Movie not found' });
+          }
+          
+          return res.status(200).json(movie);
+        } catch (error) {
+          console.error('Get movie error:', error);
+          return res.status(500).json({ error: 'Failed to get movie' });
         }
-        
-        return res.status(200).json(movie);
       }
     }
     
