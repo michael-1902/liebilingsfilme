@@ -35,6 +35,10 @@ module.exports = async (req, res) => {
     if (method === 'GET' && (url === '/api/movies' || url === '/' || url.startsWith('/api/movies'))) {
       const movieList = await movies.find({}).toArray();
       console.log('Found movies:', movieList.length);
+      // Log movie IDs for debugging
+      movieList.forEach(movie => {
+        console.log('Movie ID:', movie._id, 'Type:', typeof movie._id, 'Title:', movie.title);
+      });
       return res.json(movieList);
     }
     
@@ -69,11 +73,19 @@ module.exports = async (req, res) => {
       const urlParts = url.split('/');
       const movieId = urlParts[urlParts.length - 1];
       
-      console.log('Movie ID operation:', { method, movieId });
+      console.log('Movie ID operation:', { method, movieId, url, urlParts });
+      
+      // Validate ObjectId format
+      if (!ObjectId.isValid(movieId)) {
+        console.log('Invalid ObjectId:', movieId);
+        return res.status(400).json({ error: 'Invalid movie ID format' });
+      }
       
       if (method === 'PUT') {
         // Update movie
         const { title, year } = req.body;
+        
+        console.log('Update request:', { movieId, title, year });
         
         if (!title || !year) {
           return res.status(400).json({ 
@@ -92,37 +104,46 @@ module.exports = async (req, res) => {
             { returnDocument: 'after' }
           );
           
+          console.log('Update result:', updatedMovie);
+          
           if (!updatedMovie.value) {
             return res.status(404).json({ error: 'Movie not found' });
           }
           
-          console.log('Movie updated:', updatedMovie.value);
+          console.log('Movie updated successfully:', updatedMovie.value);
           return res.status(200).json(updatedMovie.value);
         } catch (error) {
           console.error('Update error:', error);
-          return res.status(500).json({ error: 'Failed to update movie' });
+          return res.status(500).json({ error: 'Failed to update movie: ' + error.message });
         }
       }
       
       if (method === 'DELETE') {
         // Delete movie
         try {
+          console.log('Attempting to delete movie with ID:', movieId);
+          
           const deletedMovie = await movies.findOneAndDelete(
             { _id: new ObjectId(movieId) }
           );
           
+          console.log('Delete result:', deletedMovie);
+          
           if (!deletedMovie.value) {
+            // Let's also try to find the movie to see if it exists
+            const existingMovie = await movies.findOne({ _id: new ObjectId(movieId) });
+            console.log('Movie exists check:', existingMovie);
             return res.status(404).json({ error: 'Movie not found' });
           }
           
-          console.log('Movie deleted:', deletedMovie.value);
+          console.log('Movie deleted successfully:', deletedMovie.value);
           return res.status(200).json({ 
             message: 'Movie deleted successfully',
             deletedMovie: deletedMovie.value
           });
         } catch (error) {
           console.error('Delete error:', error);
-          return res.status(500).json({ error: 'Failed to delete movie' });
+          return res.status(500).json({ error: 'Failed to delete movie: ' + error.message });
         }
       }
       
@@ -138,7 +159,7 @@ module.exports = async (req, res) => {
           return res.status(200).json(movie);
         } catch (error) {
           console.error('Get movie error:', error);
-          return res.status(500).json({ error: 'Failed to get movie' });
+          return res.status(500).json({ error: 'Failed to get movie: ' + error.message });
         }
       }
     }
