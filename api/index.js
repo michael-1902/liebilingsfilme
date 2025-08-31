@@ -1,33 +1,21 @@
-// Vercel Serverless API Handler - Robust version
+// Vercel Serverless API Handler - Anti-buffering version
 const mongoose = require('mongoose');
+
+// Disable mongoose buffering globally
+mongoose.set('bufferCommands', false);
+mongoose.set('bufferMaxEntries', 0);
 
 // Import model
 const Movie = require('../server/models/movie');
 
 // MongoDB connection state
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
-}
-
-// Validate environment variables
-function validateEnvironment() {
-  const requiredVars = ['MONGO_URI'];
-  const missing = requiredVars.filter(varName => !process.env[varName]);
-  
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
-  }
-  
-  console.log('Environment variables validated successfully');
-}
+let isConnected = false;
 
 // Database connection function
 async function connectToDatabase() {
-  if (cached.conn && mongoose.connection.readyState === 1) {
-    console.log('Using cached MongoDB connection');
-    return cached.conn;
+  if (isConnected && mongoose.connection.readyState === 1) {
+    console.log('Using existing MongoDB connection');
+    return;
   }
 
   try {
@@ -36,37 +24,39 @@ async function connectToDatabase() {
       throw new Error('MONGO_URI environment variable is not set');
     }
 
-    console.log('Creating new MongoDB connection...');
+    console.log('Creating fresh MongoDB connection...');
     
-    // Ensure clean connection state
+    // Force disconnect any existing connections
     if (mongoose.connection.readyState !== 0) {
       await mongoose.disconnect();
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // Mongoose connection options for serverless environment
-    const connectionOptions = {
-      serverSelectionTimeoutMS: 10000, // Increased timeout
-      socketTimeoutMS: 45000,
-      connectTimeoutMS: 10000,
-      family: 4, // Force IPv4
-      bufferCommands: false, // Disable mongoose buffering
-      maxPoolSize: 1, // Limit connection pool for serverless
+    // Connect with minimal buffering and strict timeout settings
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+      connectTimeoutMS: 5000,
+      maxPoolSize: 1,
       minPoolSize: 0,
-      maxIdleTimeMS: 30000,
-      waitQueueTimeoutMS: 10000,
-    };
-
-    const connection = await mongoose.connect(uri, connectionOptions);
+      maxIdleTimeMS: 10000,
+      bufferCommands: false,
+      bufferMaxEntries: 0,
+      family: 4,
+    });
     
-    cached.conn = connection;
-    console.log('MongoDB connection established successfully');
-    console.log('Connection state:', mongoose.connection.readyState);
+    isConnected = true;
+    console.log('MongoDB connected successfully');
     
-    return connection;
+    // Handle disconnection
+    mongoose.connection.on('disconnected', () => {
+      isConnected = false;
+      console.log('MongoDB disconnected');
+    });
+    
   } catch (error) {
-    cached.conn = null;
-    cached.promise = null;
-    console.error('MongoDB connection error:', error);
+    isConnected = false;
+    console.error('MongoDB connection failed:', error);
     throw error;
   }
 }
@@ -84,28 +74,21 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Validate environment variables first
-    validateEnvironment();
+    // Connect to database with timeout
+    console.log('Establishing database connection...');
+    const connectionPromise = connectToDatabase();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Connection timeout')), 8000)
+    );
     
-    // Ensure database connection
-    console.log('Connecting to database...');
-    await connectToDatabase();
+    await Promise.race([connectionPromise, timeoutPromise]);
     
-    // Additional connection readiness check
-    if (mongoose.connection.readyState !== 1) {
-      console.log('Waiting for connection to be ready...');
-      let retries = 3;
-      while (mongoose.connection.readyState !== 1 && retries > 0) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        retries--;
-      }
-      
-      if (mongoose.connection.readyState !== 1) {
-        throw new Error('Database connection not ready after retries');
-      }
+    // Verify connection is actually ready
+    if (!isConnected || mongoose.connection.readyState !== 1) {
+      throw new Error('Database connection not ready');
     }
     
-    console.log('Database connection ready, processing request...');
+    console.log('Database ready, processing request...');
     
     // Parse the URL to determine the action
     const url = req.url || '';
@@ -116,56 +99,45 @@ module.exports = async (req, res) => {
     // Handle different routes
     if (url === '/api/movies' || url === '/movies' || url === '/') {
       if (method === 'GET') {
-        // Get all movies
+        // Get all movies with immediate execution
         console.log('Fetching all movies...');
         try {
-          // Ensure connection is ready before query
-          if (mongoose.connection.readyState !== 1) {
-            throw new Error('Database connection not ready');
-          }
-          
-          const movies = await Movie.find()
-            .maxTimeMS(10000)
-            .lean() // Return plain JavaScript objects instead of Mongoose documents
-            .exec();
-          
-          console.log(`Found ${movies.length} movies`);
-          return res.json(movies);
+          // Direct query without buffering
+          const movies = await Movie.find({}).maxTimeMS(5000).exec();
+          console.log(`Successfully found ${movies.length} movies`);
+          return res.status(200).json(movies);
         } catch (dbError) {
-          console.error('Database query error:', dbError);
+          console.error('Database query failed:', dbError);
           return res.status(500).json({ 
-            error: 'Datenbankfehler beim Abrufen der Filme',
+            error: 'Failed to fetch movies',
             details: dbError.message 
           });
         }
       }
       
       if (method === 'POST') {
-        // Add new movie
+        // Add new movie with immediate save
         console.log('Adding new movie...', req.body);
         try {
-          // Ensure connection is ready before save
-          if (mongoose.connection.readyState !== 1) {
-            throw new Error('Database connection not ready');
-          }
-          
           const { title, description, year } = req.body;
           
           if (!title || !description || !year) {
             return res.status(400).json({ 
-              error: 'Fehlende Felder',
+              error: 'Missing required fields',
               required: ['title', 'description', 'year']
             });
           }
           
+          // Create and save immediately
           const newMovie = new Movie({ title, description, year });
           const savedMovie = await newMovie.save();
-          console.log('Movie saved:', savedMovie._id);
+          
+          console.log('Movie saved successfully:', savedMovie._id);
           return res.status(201).json(savedMovie);
         } catch (dbError) {
-          console.error('Database save error:', dbError);
+          console.error('Database save failed:', dbError);
           return res.status(500).json({ 
-            error: 'Datenbankfehler beim Speichern des Films',
+            error: 'Failed to save movie',
             details: dbError.message 
           });
         }
@@ -178,54 +150,77 @@ module.exports = async (req, res) => {
       
       if (method === 'GET') {
         // Get specific movie
-        const movie = await Movie.findById(movieId);
-        if (!movie) {
-          return res.status(404).json({ error: 'Film nicht gefunden' });
+        try {
+          const movie = await Movie.findById(movieId).maxTimeMS(5000).exec();
+          if (!movie) {
+            return res.status(404).json({ error: 'Movie not found' });
+          }
+          return res.status(200).json(movie);
+        } catch (dbError) {
+          console.error('Database error finding movie:', dbError);
+          return res.status(500).json({ error: 'Failed to find movie', details: dbError.message });
         }
-        return res.json(movie);
       }
       
       if (method === 'PUT') {
         // Update movie
-        const { title, description, year } = req.body;
-        const updatedMovie = await Movie.findByIdAndUpdate(
-          movieId,
-          { title, description, year },
-          { new: true }
-        );
-        if (!updatedMovie) {
-          return res.status(404).json({ error: 'Film nicht gefunden' });
+        try {
+          const { title, description, year } = req.body;
+          const updatedMovie = await Movie.findByIdAndUpdate(
+            movieId,
+            { title, description, year },
+            { new: true }
+          ).maxTimeMS(5000).exec();
+          
+          if (!updatedMovie) {
+            return res.status(404).json({ error: 'Movie not found' });
+          }
+          return res.status(200).json(updatedMovie);
+        } catch (dbError) {
+          console.error('Database error updating movie:', dbError);
+          return res.status(500).json({ error: 'Failed to update movie', details: dbError.message });
         }
-        return res.json(updatedMovie);
       }
       
       if (method === 'DELETE') {
         // Delete movie
-        const deletedMovie = await Movie.findByIdAndDelete(movieId);
-        if (!deletedMovie) {
-          return res.status(404).json({ error: 'Film nicht gefunden' });
+        try {
+          const deletedMovie = await Movie.findByIdAndDelete(movieId).maxTimeMS(5000).exec();
+          if (!deletedMovie) {
+            return res.status(404).json({ error: 'Movie not found' });
+          }
+          return res.status(200).json({ message: 'Movie deleted successfully' });
+        } catch (dbError) {
+          console.error('Database error deleting movie:', dbError);
+          return res.status(500).json({ error: 'Failed to delete movie', details: dbError.message });
         }
-        return res.json({ message: 'Film erfolgreich gelöscht' });
       }
     }
     
     // Default response
-    return res.json({ 
-      message: 'Lieblingsfilme API läuft auf Vercel!',
-      availableEndpoints: [
-        'GET /api/movies - Alle Filme abrufen',
-        'POST /api/movies - Neuen Film hinzufügen',
-        'GET /api/movies/:id - Einzelnen Film abrufen',
-        'PUT /api/movies/:id - Film aktualisieren',
-        'DELETE /api/movies/:id - Film löschen'
+    return res.status(200).json({ 
+      message: 'Lieblingsfilme API is running on Vercel!',
+      status: 'healthy',
+      connection: isConnected ? 'connected' : 'disconnected',
+      endpoints: [
+        'GET /api/movies - Get all movies',
+        'POST /api/movies - Add new movie',
+        'GET /api/movies/:id - Get specific movie',
+        'PUT /api/movies/:id - Update movie',
+        'DELETE /api/movies/:id - Delete movie'
       ]
     });
     
   } catch (error) {
-    console.error('API Handler Fehler:', error);
+    console.error('API Handler Error:', error);
+    
+    // Reset connection state on error
+    isConnected = false;
+    
     return res.status(500).json({ 
-      error: 'Interner Serverfehler',
-      details: error.message
+      error: 'Internal server error',
+      message: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 };
