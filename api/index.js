@@ -1,4 +1,4 @@
-// Vercel Serverless API Handler - Direct approach
+// Vercel Serverless API Handler - Robust version
 const mongoose = require('mongoose');
 
 // Import model
@@ -11,9 +11,21 @@ if (!cached) {
   cached = global.mongoose = { conn: null, promise: null };
 }
 
+// Validate environment variables
+function validateEnvironment() {
+  const requiredVars = ['MONGO_URI'];
+  const missing = requiredVars.filter(varName => !process.env[varName]);
+  
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+  
+  console.log('Environment variables validated successfully');
+}
+
 // Database connection function
 async function connectToDatabase() {
-  if (cached.conn && cached.conn.connection.readyState === 1) {
+  if (cached.conn && mongoose.connection.readyState === 1) {
     console.log('Using cached MongoDB connection');
     return cached.conn;
   }
@@ -26,27 +38,35 @@ async function connectToDatabase() {
 
     console.log('Creating new MongoDB connection...');
     
-    // Disconnect if there's an existing connection that's not ready
-    if (cached.conn) {
+    // Ensure clean connection state
+    if (mongoose.connection.readyState !== 0) {
       await mongoose.disconnect();
     }
     
-    const connection = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
+    // Mongoose connection options for serverless environment
+    const connectionOptions = {
+      serverSelectionTimeoutMS: 10000, // Increased timeout
       socketTimeoutMS: 45000,
-      family: 4,
-      bufferCommands: false,
-      maxPoolSize: 1, // Limit connection pool size for serverless
-    });
+      connectTimeoutMS: 10000,
+      family: 4, // Force IPv4
+      bufferCommands: false, // Disable mongoose buffering
+      maxPoolSize: 1, // Limit connection pool for serverless
+      minPoolSize: 0,
+      maxIdleTimeMS: 30000,
+      waitQueueTimeoutMS: 10000,
+    };
 
+    const connection = await mongoose.connect(uri, connectionOptions);
+    
     cached.conn = connection;
-    console.log('MongoDB-Verbindung erfolgreich hergestellt (Vercel)');
+    console.log('MongoDB connection established successfully');
     console.log('Connection state:', mongoose.connection.readyState);
+    
     return connection;
   } catch (error) {
     cached.conn = null;
     cached.promise = null;
-    console.error('MongoDB-Verbindungsfehler (Vercel):', error);
+    console.error('MongoDB connection error:', error);
     throw error;
   }
 }
@@ -64,27 +84,28 @@ module.exports = async (req, res) => {
   }
 
   try {
+    // Validate environment variables first
+    validateEnvironment();
+    
     // Ensure database connection
     console.log('Connecting to database...');
     await connectToDatabase();
-    console.log('Database connected successfully');
     
-    // Wait for connection to be ready
+    // Additional connection readiness check
     if (mongoose.connection.readyState !== 1) {
       console.log('Waiting for connection to be ready...');
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Database connection timeout'));
-        }, 5000);
-        
-        mongoose.connection.once('connected', () => {
-          clearTimeout(timeout);
-          resolve();
-        });
-      });
+      let retries = 3;
+      while (mongoose.connection.readyState !== 1 && retries > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        retries--;
+      }
+      
+      if (mongoose.connection.readyState !== 1) {
+        throw new Error('Database connection not ready after retries');
+      }
     }
     
-    console.log('Connection ready, processing request...');
+    console.log('Database connection ready, processing request...');
     
     // Parse the URL to determine the action
     const url = req.url || '';
@@ -98,7 +119,16 @@ module.exports = async (req, res) => {
         // Get all movies
         console.log('Fetching all movies...');
         try {
-          const movies = await Movie.find().maxTimeMS(5000);
+          // Ensure connection is ready before query
+          if (mongoose.connection.readyState !== 1) {
+            throw new Error('Database connection not ready');
+          }
+          
+          const movies = await Movie.find()
+            .maxTimeMS(10000)
+            .lean() // Return plain JavaScript objects instead of Mongoose documents
+            .exec();
+          
           console.log(`Found ${movies.length} movies`);
           return res.json(movies);
         } catch (dbError) {
@@ -114,6 +144,11 @@ module.exports = async (req, res) => {
         // Add new movie
         console.log('Adding new movie...', req.body);
         try {
+          // Ensure connection is ready before save
+          if (mongoose.connection.readyState !== 1) {
+            throw new Error('Database connection not ready');
+          }
+          
           const { title, description, year } = req.body;
           
           if (!title || !description || !year) {

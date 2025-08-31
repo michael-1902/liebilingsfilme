@@ -16,6 +16,15 @@ const movieSchema = new Schema({
     required: true,
     trim: true,
   },
+  // Feld 'description':
+  // - Typ: String
+  // - Erforderlich: Jeder Film benötigt eine Beschreibung
+  // - 'trim' entfernt führende und nachfolgende Leerzeichen
+  description: {
+    type: String,
+    required: true,
+    trim: true,
+  },
   // Feld 'year':
   // - Typ: Number
   // - Erforderlich
