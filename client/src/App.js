@@ -7,8 +7,22 @@ import './App.css';
 
 // Basis-URL für unser Backend-API
 // Lokal: setze REACT_APP_API_URL=http://localhost:5001/api/movies
-// Produktion: falls REACT_APP_API_URL nicht gesetzt ist, wird die Vercel-URL verwendet
-const API_URL = process.env.REACT_APP_API_URL || 'https://lieblingsfilme.vercel.app/api/movies';
+// Produktion: automatische Erkennung der Vercel-Domain oder Fallback
+const getApiUrl = () => {
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Lokale Entwicklung
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5001/api/movies';
+  }
+  
+  // Produktion: verwende die aktuelle Domain
+  return `${window.location.origin}/api/movies`;
+};
+
+const API_URL = getApiUrl();
 
 function App() {
   // State für das Array der Filme
