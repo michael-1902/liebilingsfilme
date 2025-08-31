@@ -1,33 +1,8 @@
-// Vercel Serverless API Handler
-const express = require('express');
+// Vercel Serverless API Handler - Direct approach
 const mongoose = require('mongoose');
-const cors = require('cors');
 
-// Import routes
-const moviesRouter = require('../server/routes/movies');
-
-// Import model to ensure it's registered
-require('../server/models/movie');
-
-// Create Express app
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Routes - handle both /api/movies and /movies patterns
-app.use('/movies', moviesRouter);  // For requests that come as /api/movies -> /movies
-app.use('/api/movies', moviesRouter); // For direct /api/movies requests
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({ message: 'Lieblingsfilme API läuft auf Vercel!' });
-});
-
-app.get('/api', (req, res) => {
-  res.json({ message: 'Lieblingsfilme API läuft auf Vercel!' });
-});
+// Import model
+const Movie = require('../server/models/movie');
 
 // MongoDB connection state
 let cached = global.mongoose;
@@ -87,39 +62,88 @@ module.exports = async (req, res) => {
     await connectToDatabase();
     console.log('Database connected successfully');
     
-    // Parse the URL to handle routing correctly
+    // Parse the URL to determine the action
     const url = req.url || '';
+    const method = req.method;
     
-    // Debug logging
-    console.log('Incoming request:', {
-      method: req.method,
-      url: url,
-      headers: req.headers,
-      body: req.method === 'POST' ? 'Has body' : 'No body'
-    });
+    console.log('Processing request:', { method, url });
     
-    // If it's an API movies request, modify the URL to match our Express routes
-    if (url.startsWith('/api/movies')) {
-      // Remove /api prefix so it matches our Express routes
-      req.url = url.replace('/api', '');
-    } else if (url === '/api' || url === '/') {
-      // Handle root API requests
-      req.url = '/api';
-    } else {
-      // For any other path, assume it's meant for movies
-      req.url = '/movies' + (url.startsWith('/') ? url : '/' + url);
+    // Handle different routes
+    if (url === '/api/movies' || url === '/movies' || url === '/') {
+      if (method === 'GET') {
+        // Get all movies
+        console.log('Fetching all movies...');
+        const movies = await Movie.find();
+        console.log(`Found ${movies.length} movies`);
+        return res.json(movies);
+      }
+      
+      if (method === 'POST') {
+        // Add new movie
+        console.log('Adding new movie...', req.body);
+        const { title, description, year } = req.body;
+        
+        const newMovie = new Movie({ title, description, year });
+        const savedMovie = await newMovie.save();
+        console.log('Movie saved:', savedMovie._id);
+        return res.status(201).json(savedMovie);
+      }
     }
     
-    console.log('Modified URL for Express:', req.url);
+    if (url.startsWith('/api/movies/') || url.startsWith('/movies/')) {
+      const parts = url.split('/');
+      const movieId = parts[parts.length - 1];
+      
+      if (method === 'GET') {
+        // Get specific movie
+        const movie = await Movie.findById(movieId);
+        if (!movie) {
+          return res.status(404).json({ error: 'Film nicht gefunden' });
+        }
+        return res.json(movie);
+      }
+      
+      if (method === 'PUT') {
+        // Update movie
+        const { title, description, year } = req.body;
+        const updatedMovie = await Movie.findByIdAndUpdate(
+          movieId,
+          { title, description, year },
+          { new: true }
+        );
+        if (!updatedMovie) {
+          return res.status(404).json({ error: 'Film nicht gefunden' });
+        }
+        return res.json(updatedMovie);
+      }
+      
+      if (method === 'DELETE') {
+        // Delete movie
+        const deletedMovie = await Movie.findByIdAndDelete(movieId);
+        if (!deletedMovie) {
+          return res.status(404).json({ error: 'Film nicht gefunden' });
+        }
+        return res.json({ message: 'Film erfolgreich gelöscht' });
+      }
+    }
     
-    // Handle the request with Express app
-    return app(req, res);
+    // Default response
+    return res.json({ 
+      message: 'Lieblingsfilme API läuft auf Vercel!',
+      availableEndpoints: [
+        'GET /api/movies - Alle Filme abrufen',
+        'POST /api/movies - Neuen Film hinzufügen',
+        'GET /api/movies/:id - Einzelnen Film abrufen',
+        'PUT /api/movies/:id - Film aktualisieren',
+        'DELETE /api/movies/:id - Film löschen'
+      ]
+    });
+    
   } catch (error) {
     console.error('API Handler Fehler:', error);
     return res.status(500).json({ 
       error: 'Interner Serverfehler',
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      details: error.message
     });
   }
 };
