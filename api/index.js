@@ -64,6 +64,73 @@ module.exports = async (req, res) => {
       return res.status(201).json(savedMovie);
     }
     
+    // Handle movie ID-based operations (GET, PUT, DELETE by ID)
+    if (url.includes('/api/movies/') && url !== '/api/movies/add') {
+      const urlParts = url.split('/');
+      const movieId = urlParts[urlParts.length - 1];
+      
+      console.log('Movie ID operation:', { method, movieId });
+      
+      if (method === 'PUT') {
+        // Update movie
+        const { title, year } = req.body;
+        
+        if (!title || !year) {
+          return res.status(400).json({ 
+            error: 'Missing required fields: title, year' 
+          });
+        }
+        
+        const { ObjectId } = require('mongodb');
+        const updatedMovie = await movies.findOneAndUpdate(
+          { _id: new ObjectId(movieId) },
+          { 
+            title, 
+            year: parseInt(year),
+            updatedAt: new Date()
+          },
+          { returnDocument: 'after' }
+        );
+        
+        if (!updatedMovie.value) {
+          return res.status(404).json({ error: 'Movie not found' });
+        }
+        
+        console.log('Movie updated:', updatedMovie.value);
+        return res.status(200).json(updatedMovie.value);
+      }
+      
+      if (method === 'DELETE') {
+        // Delete movie
+        const { ObjectId } = require('mongodb');
+        const deletedMovie = await movies.findOneAndDelete(
+          { _id: new ObjectId(movieId) }
+        );
+        
+        if (!deletedMovie.value) {
+          return res.status(404).json({ error: 'Movie not found' });
+        }
+        
+        console.log('Movie deleted:', deletedMovie.value);
+        return res.status(200).json({ 
+          message: 'Movie deleted successfully',
+          deletedMovie: deletedMovie.value
+        });
+      }
+      
+      if (method === 'GET') {
+        // Get single movie
+        const { ObjectId } = require('mongodb');
+        const movie = await movies.findOne({ _id: new ObjectId(movieId) });
+        
+        if (!movie) {
+          return res.status(404).json({ error: 'Movie not found' });
+        }
+        
+        return res.status(200).json(movie);
+      }
+    }
+    
     res.json({ 
       message: 'API Working - Native MongoDB',
       status: 'success'
