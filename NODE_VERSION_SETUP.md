@@ -94,13 +94,4 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 appwiz.cpl
 # "Node.js" deinstallieren, dann NVM verwenden
 ```
-
-## ✅ Erfolgreich wenn:
-- `node --version` zeigt v18.20.4
-- `npm start` (im client/) startet ohne Fehler
-- React App öffnet sich im Browser (http://localhost:3000)
-
-## 🎯 Empfohlene Versions-Strategie
-- **Development (React)**: Node.js v18 LTS
-- **Production/Vercel**: Automatisch (verwendet kompatible Version)
-- **Schneller Wechsel**: `nvm use 18` / `nvm use 22`
+nvm 
