@@ -7,10 +7,32 @@ let db = null;
 async function connectDB() {
   if (db) return db;
   
-  client = new MongoClient(process.env.MONGO_URI);
-  await client.connect();
-  db = client.db();
-  return db;
+  console.log('Connecting to MongoDB...');
+  
+  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+  console.log('MongoDB URI exists:', !!mongoUri);
+  console.log('MongoDB URI preview:', mongoUri ? mongoUri.substring(0, 20) + '...' : 'NOT FOUND');
+  
+  if (!mongoUri) {
+    throw new Error('MONGO_URI environment variable is not set');
+  }
+  
+  try {
+    client = new MongoClient(mongoUri, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+    
+    await client.connect();
+    console.log('MongoDB connected successfully');
+    
+    db = client.db();
+    return db;
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error;
+  }
 }
 
 module.exports = async (req, res) => {
@@ -22,6 +44,12 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
+
+  console.log('=== API CALL START ===');
+  console.log('Environment check:');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('MONGO_URI exists:', !!process.env.MONGO_URI);
+  console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
 
   try {
     const database = await connectDB();
@@ -167,10 +195,17 @@ module.exports = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('=== API ERROR ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Environment variables check:');
+    console.error('MONGO_URI exists:', !!process.env.MONGO_URI);
+    console.error('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+    
     res.status(500).json({ 
       error: 'Database error',
-      message: error.message 
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
