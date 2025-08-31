@@ -6,6 +6,9 @@ const cors = require('cors');
 // Import routes
 const moviesRouter = require('../server/routes/movies');
 
+// Import model to ensure it's registered
+require('../server/models/movie');
+
 // Create Express app
 const app = express();
 
@@ -27,29 +30,40 @@ app.get('/api', (req, res) => {
 });
 
 // MongoDB connection state
-let isConnected = false;
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
 
 // Database connection function
 async function connectToDatabase() {
-  if (isConnected) {
-    return;
+  if (cached.conn) {
+    console.log('Using cached MongoDB connection');
+    return cached.conn;
   }
 
-  try {
+  if (!cached.promise) {
     const uri = process.env.MONGO_URI;
     if (!uri) {
       throw new Error('MONGO_URI environment variable is not set');
     }
 
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 30000,
+    console.log('Creating new MongoDB connection...');
+    cached.promise = mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
-      family: 4
+      family: 4,
+      bufferCommands: false,
     });
+  }
 
-    isConnected = true;
+  try {
+    cached.conn = await cached.promise;
     console.log('MongoDB-Verbindung erfolgreich hergestellt (Vercel)');
+    return cached.conn;
   } catch (error) {
+    cached.promise = null;
     console.error('MongoDB-Verbindungsfehler (Vercel):', error);
     throw error;
   }
@@ -57,9 +71,21 @@ async function connectToDatabase() {
 
 // Main handler function
 module.exports = async (req, res) => {
+  // Set CORS headers for all requests
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     // Ensure database connection
+    console.log('Connecting to database...');
     await connectToDatabase();
+    console.log('Database connected successfully');
     
     // Parse the URL to handle routing correctly
     const url = req.url || '';
@@ -68,7 +94,8 @@ module.exports = async (req, res) => {
     console.log('Incoming request:', {
       method: req.method,
       url: url,
-      path: req.url
+      headers: req.headers,
+      body: req.method === 'POST' ? 'Has body' : 'No body'
     });
     
     // If it's an API movies request, modify the URL to match our Express routes
@@ -91,7 +118,8 @@ module.exports = async (req, res) => {
     console.error('API Handler Fehler:', error);
     return res.status(500).json({ 
       error: 'Interner Serverfehler',
-      details: error.message 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
